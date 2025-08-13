@@ -15,7 +15,7 @@ export default function App() {
 		<div className='min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-slate-100 flex flex-col items-center px-4 py-6 select-none'>
 			<header className='w-full max-w-xl flex items-center justify-between mb-6'>
 				<h1 className='text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 to-cyan-400 drop-shadow'>
-					Roll Craft
+					Roll Test Project
 				</h1>
 				<div className='flex gap-2'>
 					<div className='bg-slate-800/80 backdrop-blur rounded-lg px-3 py-1.5 flex items-center gap-2 shadow border border-slate-600/50'>
