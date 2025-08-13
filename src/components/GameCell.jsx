@@ -1,4 +1,8 @@
 import { motion as Motion } from 'framer-motion'
+import bomb from '../assets/bomb.png'
+import money from '../assets/money.png'
+import mult from '../assets/mult.png'
+import zero from '../assets/zero.png'
 import AnimatedNumber from './AnimatedNumber.jsx'
 
 const faceVariants = {
@@ -19,10 +23,10 @@ const typeStyles = {
 }
 
 const typeIcons = {
-	cash: '💰',
-	mult: '✖️2',
-	bomb: '💣',
-	zero: '0',
+	cash: money,
+	mult: mult,
+	bomb: bomb,
+	zero: zero,
 }
 
 export default function GameCell({
@@ -37,34 +41,38 @@ export default function GameCell({
 	return (
 		<button
 			data-cell-index={index}
-			className={`relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-slate-700/60 border border-slate-600/60 backdrop-blur-lg perspective [transform-style:preserve-3d] overflow-hidden group shadow-inner transition-transform active:scale-95 ${
+			className={`relative w-16 h-16 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-xl bg-slate-700/60 border border-slate-600/60 backdrop-blur-lg perspective [transform-style:preserve-3d] overflow-hidden group shadow-inner transition-transform active:scale-95 ${
 				opened ? 'opened' : 'hover:border-slate-500/80'
 			} ${triggerBomb ? 'animate-pulse ring-2 ring-rose-500/60' : ''}`}
 			onClick={onOpen}
 			disabled={opened}
 		>
 			<Motion.div
-				className='absolute inset-0 flex items-center justify-center font-bold text-lg sm:text-xl [backface-visibility:hidden]'
+				className='absolute inset-0 flex items-center justify-center font-bold text-base sm:text-lg [backface-visibility:hidden]'
 				variants={backVariants}
 				initial='hidden'
 				animate={opened ? 'visible' : 'hidden'}
 				transition={{ duration: 0.7, ease: [0.83, 0, 0.17, 1] }}
 			>
-				<div className='w-full h-full flex items-center justify-center text-slate-300/80 text-sm tracking-wide font-semibold uppercase'>
+				<div className='w-full h-full flex items-center justify-center text-slate-300/80 text-xs sm:text-sm tracking-wide font-semibold uppercase'>
 					Open
 				</div>
 			</Motion.div>
 			<Motion.div
-				className={`absolute inset-0 flex items-center justify-center font-bold text-2xl [backface-visibility:hidden] ${typeStyles[type]}`}
+				className={`absolute inset-0 flex items-center justify-center font-bold text-xl sm:text-2xl [backface-visibility:hidden] ${typeStyles[type]}`}
 				variants={faceVariants}
 				initial='hidden'
 				animate={opened ? 'visible' : 'hidden'}
 				transition={{ duration: 0.7, ease: [0.83, 0, 0.17, 1] }}
 			>
 				{type === 'cash' && (
-					<span>
-						{typeIcons.cash}
-						<span className='ml-1 text-base font-semibold'>
+					<span className='flex items-center'>
+						<img
+							src={typeIcons.cash}
+							alt='cash'
+							className='w-4 h-4 sm:w-5 sm:h-5 mr-1 select-none'
+						/>
+						<span className='text-xs sm:text-base font-semibold'>
 							{opened && displayValue !== undefined ? (
 								<AnimatedNumber value={displayValue} duration={1.8} />
 							) : (
@@ -75,20 +83,38 @@ export default function GameCell({
 				)}
 				{type === 'mult' && (
 					<span className='flex flex-col items-center gap-1'>
-						<span className='text-2xl'>×2</span>
-						<span className='text-[10px] tracking-wide uppercase'>Boost</span>
+						<img
+							src={typeIcons.mult}
+							alt='x2'
+							className='w-5 h-5 sm:w-7 sm:h-7 select-none'
+						/>
+						<span className='text-[9px] sm:text-[10px] tracking-wide uppercase'>
+							Boost
+						</span>
 					</span>
 				)}
 				{type === 'bomb' && (
 					<span className='flex flex-col items-center gap-1'>
-						<span className='text-2xl'>💣</span>
-						<span className='text-[10px] tracking-wide uppercase'>Bomb</span>
+						<img
+							src={typeIcons.bomb}
+							alt='bomb'
+							className='w-5 h-5 sm:w-7 sm:h-7 select-none'
+						/>
+						<span className='text-[9px] sm:text-[10px] tracking-wide uppercase'>
+							Bomb
+						</span>
 					</span>
 				)}
 				{type === 'zero' && (
 					<span className='flex flex-col items-center gap-1'>
-						<span className='text-xl'>0</span>
-						<span className='text-[10px] tracking-wide uppercase'>Empty</span>
+						<img
+							src={typeIcons.zero}
+							alt='empty'
+							className='w-5 h-5 sm:w-6 sm:h-6 select-none'
+						/>
+						<span className='text-[9px] sm:text-[10px] tracking-wide uppercase'>
+							Empty
+						</span>
 					</span>
 				)}
 			</Motion.div>

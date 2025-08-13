@@ -1,5 +1,6 @@
 import { motion as Motion } from 'framer-motion'
 import { useEffect } from 'react'
+import diamond from '../assets/diamond.png'
 
 const backdrop = {
 	hidden: { opacity: 0 },
@@ -100,7 +101,14 @@ export default function ResultModal({
 								onClick={() => onSave?.(onClose)}
 								className='flex-1 px-4 py-2 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 font-semibold text-sm shadow-md hover:shadow-lg transition-shadow'
 							>
-								Save for {crystalCost} 💎
+								<span className='inline-flex items-center gap-1'>
+									Save for {crystalCost}
+									<img
+										src={diamond}
+										alt='crystals'
+										className='w-4 h-4 select-none'
+									/>
+								</span>
 							</button>
 						)}
 						<button

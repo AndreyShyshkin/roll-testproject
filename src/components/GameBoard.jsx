@@ -1,8 +1,10 @@
 import { AnimatePresence, motion as Motion } from 'framer-motion'
 import gsap from 'gsap'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import moneyImg from '../assets/money.png'
 import AnimatedNumber from './AnimatedNumber.jsx'
 import GameCell from './GameCell.jsx'
+
 const generateLayout = () => {
 	const cells = []
 	cells.push({ type: 'bomb' })
@@ -20,7 +22,7 @@ const generateLayout = () => {
 	return cells
 }
 
-export default function GameBoard({ onShowModal }) {
+export default function GameBoard({ onShowModal, onCurrency }) {
 	const [cells, setCells] = useState(() => generateLayout())
 	const [opened, setOpened] = useState([])
 	const [balance, setBalance] = useState(0)
@@ -33,7 +35,6 @@ export default function GameBoard({ onShowModal }) {
 	const [explosionWave, setExplosionWave] = useState(false)
 	const [cellDisplayValues, setCellDisplayValues] = useState({})
 
-	// Валютна система
 	const [money, setMoney] = useState(100)
 	const [crystals, setCrystals] = useState(100)
 	const [gameStarted, setGameStarted] = useState(false)
@@ -41,6 +42,10 @@ export default function GameBoard({ onShowModal }) {
 	const boardRef = useRef(null)
 	const boardRootRef = useRef(null)
 	const glowTlRef = useRef(null)
+
+	useEffect(() => {
+		if (onCurrency) onCurrency({ money, crystals })
+	}, [money, crystals, onCurrency])
 
 	const startGame = () => {
 		if (money < 10) return
@@ -50,6 +55,7 @@ export default function GameBoard({ onShowModal }) {
 
 	const saveGame = closeModal => {
 		if (crystals < 20) return
+		setCrystals(prev => prev - 20)
 		setMoney(prev => prev + balance)
 		if (closeModal) closeModal()
 		setTimeout(() => {
@@ -341,24 +347,9 @@ export default function GameBoard({ onShowModal }) {
 
 	return (
 		<div className='w-full max-w-xl flex flex-col items-center relative'>
-			<div className='absolute top-0 right-0 flex flex-col gap-2'>
-				<div className='bg-slate-800/80 backdrop-blur rounded-lg px-3 py-1.5 flex items-center gap-2 shadow border border-slate-600/50'>
-					<span className='text-yellow-400 text-sm'>💰</span>
-					<span className='text-yellow-400 font-semibold text-sm'>
-						<AnimatedNumber value={money} />
-					</span>
-				</div>
-				<div className='bg-slate-800/80 backdrop-blur rounded-lg px-3 py-1.5 flex items-center gap-2 shadow border border-slate-600/50'>
-					<span className='text-cyan-400 text-sm'>💎</span>
-					<span className='text-cyan-400 font-semibold text-sm'>
-						<AnimatedNumber value={crystals} />
-					</span>
-				</div>
-			</div>
-
 			<div ref={boardRef} className='w-full flex flex-col items-center'>
-				<div className='flex items-center gap-4 mb-4'>
-					<div className='bg-slate-800/70 backdrop-blur rounded-xl px-4 py-2 flex items-center gap-3 shadow-inner border border-slate-600/50 relative overflow-hidden'>
+				<div className='flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4'>
+					<div className='bg-slate-800/70 backdrop-blur rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 flex items-center gap-2 sm:gap-3 shadow-inner border border-slate-600/50 relative overflow-hidden'>
 						{showMultPulse && (
 							<Motion.span
 								className='absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500/20 to-cyan-400/20'
@@ -371,7 +362,7 @@ export default function GameBoard({ onShowModal }) {
 							Balance
 						</div>
 						<div
-							className='text-2xl font-bold text-emerald-400 drop-shadow-sm'
+							className='text-xl sm:text-2xl font-bold text-emerald-400 drop-shadow-sm'
 							data-balance-target
 						>
 							<Motion.span
@@ -419,7 +410,7 @@ export default function GameBoard({ onShowModal }) {
 				<div
 					id='board-root'
 					ref={boardRootRef}
-					className={`relative grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 shadow-2xl overflow-hidden ${
+					className={`relative grid grid-cols-3 gap-2.5 sm:gap-3 p-3 sm:p-4 rounded-2xl bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 shadow-2xl overflow-hidden ${
 						!gameStarted ? 'opacity-50 pointer-events-none' : ''
 					}`}
 				>
@@ -449,7 +440,7 @@ export default function GameBoard({ onShowModal }) {
 					<div className='pointer-events-none absolute -inset-1 rounded-[26px] bg-gradient-to-br from-indigo-500/20 to-cyan-400/20 blur-xl' />
 				</div>
 
-				<div className='mt-6 w-full flex justify-center'>
+				<div className='mt-4 sm:mt-6 w-full flex justify-center'>
 					<AnimatePresence mode='wait' initial={false}>
 						{!gameStarted ? (
 							<Motion.button
@@ -462,7 +453,14 @@ export default function GameBoard({ onShowModal }) {
 								transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
 								className='px-8 py-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-xl transition-colors'
 							>
-								Start Game (10 💰)
+								<span className='inline-flex items-center gap-2'>
+									Start Game (10)
+									<img
+										src={moneyImg}
+										alt='money'
+										className='w-4 h-4 select-none'
+									/>
+								</span>
 							</Motion.button>
 						) : (
 							<Motion.button
