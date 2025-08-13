@@ -1,5 +1,4 @@
 import { motion as Motion } from 'framer-motion'
-import { useEffect } from 'react'
 import diamond from '../assets/diamond.png'
 
 const backdrop = {
@@ -31,16 +30,6 @@ export default function ResultModal({
 	canSave = false,
 	onSave,
 }) {
-	useEffect(() => {
-		const handler = e => {
-			if (e.key === 'Escape') onClose?.()
-		}
-		if (isOpen) {
-			window.addEventListener('keydown', handler)
-			return () => window.removeEventListener('keydown', handler)
-		}
-	}, [onClose, isOpen])
-
 	if (!isOpen) return null
 
 	const title = type === 'bomb' ? 'Game Over' : 'Claim'
@@ -58,10 +47,7 @@ export default function ResultModal({
 			animate='visible'
 			exit='hidden'
 		>
-			<div
-				className='absolute inset-0 backdrop-blur-xl bg-slate-950/70'
-				onClick={onClose}
-			/>
+			<div className='absolute inset-0 backdrop-blur-xl bg-slate-950/70' />
 			<Motion.div
 				variants={modal}
 				initial='hidden'
@@ -116,12 +102,6 @@ export default function ResultModal({
 							className='flex-1 px-4 py-2 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 font-semibold text-sm shadow-md hover:shadow-lg transition-shadow'
 						>
 							Restart
-						</button>
-						<button
-							onClick={onClose}
-							className='px-4 py-2 rounded-lg bg-slate-700/70 font-medium text-sm hover:bg-slate-600/70 border border-slate-600/50'
-						>
-							Close
 						</button>
 					</div>
 				</div>

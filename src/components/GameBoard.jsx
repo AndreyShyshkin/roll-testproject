@@ -1,6 +1,6 @@
 import { AnimatePresence, motion as Motion } from 'framer-motion'
 import gsap from 'gsap'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import moneyImg from '../assets/money.png'
 import AnimatedNumber from './AnimatedNumber.jsx'
 import GameCell from './GameCell.jsx'
@@ -42,28 +42,19 @@ export default function GameBoard({ onShowModal, onCurrency }) {
 	const boardRef = useRef(null)
 	const boardRootRef = useRef(null)
 	const glowTlRef = useRef(null)
+	const balanceTargetRef = useRef(null)
 
 	useEffect(() => {
 		if (onCurrency) onCurrency({ money, crystals })
 	}, [money, crystals, onCurrency])
 
-	const startGame = () => {
+	const startGame = useCallback(() => {
 		if (money < 10) return
 		setMoney(prev => prev - 10)
 		setGameStarted(true)
-	}
+	}, [money])
 
-	const saveGame = closeModal => {
-		if (crystals < 20) return
-		setCrystals(prev => prev - 20)
-		setMoney(prev => prev + balance)
-		if (closeModal) closeModal()
-		setTimeout(() => {
-			reset()
-		}, 300)
-	}
-
-	const reset = () => {
+	const reset = useCallback(() => {
 		setOpened([])
 		setBalance(0)
 		setBaseReveals([])
@@ -82,83 +73,111 @@ export default function GameBoard({ onShowModal, onCurrency }) {
 		setTimeout(() => {
 			setCells(generateLayout())
 		}, 100)
-	}
+	}, [])
 
-	const handleOpen = idx => {
-		if (!gameStarted || gameOver || opened.includes(idx)) return
-		const cell = cells[idx]
-		setOpened(o => [...o, idx])
-		if (cell.type === 'cash') {
-			const value = cell.amount * multiplier
-			const el = document.querySelector(`[data-cell-index="${idx}"]`)
-			animateAddToBalance(cell.amount, el)
-			spawnParticles(el, '#34d399')
-			setBaseReveals(r => [...r, cell.amount])
-			setCellDisplayValues(prev => ({
-				...prev,
-				[idx]: cell.amount * multiplier,
-			}))
+	const saveGame = useCallback(
+		closeModal => {
+			if (crystals < 20) return
+			setCrystals(prev => prev - 20)
+			setMoney(prev => prev + balance)
+			if (closeModal) closeModal()
 			setTimeout(() => {
-				setBalance(b => b + value)
-			}, 450)
-		} else if (cell.type === 'mult') {
-			const newMultiplier = multiplier * cell.mult
-			setMultiplier(newMultiplier)
-			setShowMultPulse(true)
-			setTimeout(() => setShowMultPulse(false), 1200)
+				reset()
+			}, 300)
+		},
+		[crystals, balance, reset]
+	)
 
-			const currentBalance = balance
-			const newBalance = currentBalance * cell.mult
+	const handleOpen = useCallback(
+		idx => {
+			if (!gameStarted || gameOver || opened.includes(idx)) return
+			const cell = cells[idx]
+			setOpened(o => [...o, idx])
+			if (cell.type === 'cash') {
+				const value = cell.amount * multiplier
+				const el = document.querySelector(`[data-cell-index="${idx}"]`)
+				animateAddToBalance(cell.amount, el)
+				spawnParticles(el, '#34d399')
+				setBaseReveals(r => [...r, cell.amount])
+				setCellDisplayValues(prev => ({
+					...prev,
+					[idx]: cell.amount * multiplier,
+				}))
+				setTimeout(() => {
+					setBalance(b => b + value)
+				}, 450)
+			} else if (cell.type === 'mult') {
+				const newMultiplier = multiplier * cell.mult
+				setMultiplier(newMultiplier)
+				setShowMultPulse(true)
+				setTimeout(() => setShowMultPulse(false), 1200)
 
-			setTimeout(() => {
-				setCellDisplayValues(prev => {
-					const updated = {}
-					Object.keys(prev).forEach(cellIdx => {
-						updated[cellIdx] = prev[cellIdx] * cell.mult
+				const currentBalance = balance
+				const newBalance = currentBalance * cell.mult
+
+				setTimeout(() => {
+					setCellDisplayValues(prev => {
+						const updated = {}
+						Object.keys(prev).forEach(cellIdx => {
+							updated[cellIdx] = prev[cellIdx] * cell.mult
+						})
+						return { ...prev, ...updated }
 					})
-					return { ...prev, ...updated }
-				})
-			}, 200)
+				}, 200)
 
-			setTimeout(() => {
-				setBalance(newBalance)
-			}, 800)
-		} else if (cell.type === 'bomb') {
-			setGameOver(true)
-			setTriggerBombFlash(true)
-			setExplosionWave(true)
-			shakeBoard()
+				setTimeout(() => {
+					setBalance(newBalance)
+				}, 800)
+			} else if (cell.type === 'bomb') {
+				setGameOver(true)
+				setTriggerBombFlash(true)
+				setExplosionWave(true)
+				shakeBoard()
 
-			setTimeout(() => {
-				cells.forEach((_, i) => {
-					if (i !== idx) {
-						setTimeout(() => {
-							setOpened(prev => [...prev, i])
-						}, i * 150)
+				setTimeout(() => {
+					cells.forEach((_, i) => {
+						if (i !== idx) {
+							setTimeout(() => {
+								setOpened(prev => (prev.includes(i) ? prev : [...prev, i]))
+							}, i * 150)
+						}
+					})
+				}, 500)
+
+				setTimeout(() => {
+					if (onShowModal) {
+						onShowModal({
+							isOpen: true,
+							type: 'bomb',
+							baseValues: baseReveals,
+							multiplier,
+							onRestart: reset,
+							onSave: closeModal => saveGame(closeModal),
+							crystalCost: 20,
+							canSave: crystals >= 20 && balance > 0,
+						})
 					}
-				})
-			}, 500)
-
-			setTimeout(() => {
-				if (onShowModal) {
-					onShowModal({
-						isOpen: true,
-						type: 'bomb',
-						baseValues: baseReveals,
-						multiplier,
-						onRestart: reset,
-						onSave: closeModal => saveGame(closeModal),
-						crystalCost: 20,
-						canSave: crystals >= 20 && balance > 0,
-					})
-				}
-			}, 3000)
-		}
-	}
+				}, 3000)
+			}
+		},
+		[
+			gameStarted,
+			gameOver,
+			opened,
+			cells,
+			multiplier,
+			balance,
+			baseReveals,
+			crystals,
+			onShowModal,
+			reset,
+			saveGame,
+		]
+	)
 
 	const animateAddToBalance = (baseValue, sourceEl) => {
 		if (!sourceEl) return
-		const target = document.querySelector('[data-balance-target]')
+		const target = balanceTargetRef.current
 		if (!target) return
 		const startRect = sourceEl.getBoundingClientRect()
 		const targetRect = target.getBoundingClientRect()
@@ -364,6 +383,7 @@ export default function GameBoard({ onShowModal, onCurrency }) {
 						<div
 							className='text-xl sm:text-2xl font-bold text-emerald-400 drop-shadow-sm'
 							data-balance-target
+							ref={balanceTargetRef}
 						>
 							<Motion.span
 								key={showMultPulse ? 'pulse' : 'idle'}
@@ -399,12 +419,6 @@ export default function GameBoard({ onShowModal, onCurrency }) {
 							</div>
 						)}
 					</div>
-					<button
-						onClick={reset}
-						className='px-3 py-2 text-xs font-semibold rounded-md bg-slate-700/70 hover:bg-slate-600 transition-colors border border-slate-600/60 shadow active:scale-95'
-					>
-						Reset
-					</button>
 				</div>
 
 				<div

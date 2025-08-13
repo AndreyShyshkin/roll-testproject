@@ -24,5 +24,5 @@ export default function AnimatedNumber({ value, duration = 1.5 }) {
 		return () => cancelAnimationFrame(frame)
 	}, [value, duration])
 
-	return <span>{display.toLocaleString('en-US')}</span>
+	return <span>{display}</span>
 }
