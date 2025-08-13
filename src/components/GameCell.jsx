@@ -1,4 +1,5 @@
 import { motion as Motion } from 'framer-motion'
+import AnimatedNumber from './AnimatedNumber.jsx'
 
 const faceVariants = {
 	hidden: { rotateY: 180 },
@@ -24,7 +25,14 @@ const typeIcons = {
 	zero: '0',
 }
 
-export default function GameCell({ data, opened, onOpen, triggerBomb, index }) {
+export default function GameCell({
+	data,
+	opened,
+	onOpen,
+	triggerBomb,
+	index,
+	displayValue,
+}) {
 	const { type } = data
 	return (
 		<button
@@ -38,7 +46,7 @@ export default function GameCell({ data, opened, onOpen, triggerBomb, index }) {
 			<Motion.div
 				className='absolute inset-0 flex items-center justify-center font-bold text-lg sm:text-xl [backface-visibility:hidden]'
 				variants={backVariants}
-				initial={false}
+				initial='hidden'
 				animate={opened ? 'visible' : 'hidden'}
 				transition={{ duration: 0.7, ease: [0.83, 0, 0.17, 1] }}
 			>
@@ -49,14 +57,20 @@ export default function GameCell({ data, opened, onOpen, triggerBomb, index }) {
 			<Motion.div
 				className={`absolute inset-0 flex items-center justify-center font-bold text-2xl [backface-visibility:hidden] ${typeStyles[type]}`}
 				variants={faceVariants}
-				initial={false}
+				initial='hidden'
 				animate={opened ? 'visible' : 'hidden'}
 				transition={{ duration: 0.7, ease: [0.83, 0, 0.17, 1] }}
 			>
 				{type === 'cash' && (
 					<span>
 						{typeIcons.cash}
-						<span className='ml-1 text-base font-semibold'>{data.amount}</span>
+						<span className='ml-1 text-base font-semibold'>
+							{opened && displayValue !== undefined ? (
+								<AnimatedNumber value={displayValue} duration={1.8} />
+							) : (
+								data.amount
+							)}
+						</span>
 					</span>
 				)}
 				{type === 'mult' && (

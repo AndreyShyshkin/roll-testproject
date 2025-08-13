@@ -1,7 +1,6 @@
-import { motion as Motion } from 'framer-motion'
+import { AnimatePresence, motion as Motion } from 'framer-motion'
 import gsap from 'gsap'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import useSound from '../hooks/useSound.js'
 import AnimatedNumber from './AnimatedNumber.jsx'
 import GameCell from './GameCell.jsx'
 const generateLayout = () => {
@@ -32,14 +31,33 @@ export default function GameBoard({ onShowModal }) {
 	const [triggerBombFlash, setTriggerBombFlash] = useState(false)
 	const [showMultPulse, setShowMultPulse] = useState(false)
 	const [explosionWave, setExplosionWave] = useState(false)
+	const [cellDisplayValues, setCellDisplayValues] = useState({})
+
+	// Валютна система
+	const [money, setMoney] = useState(100)
+	const [crystals, setCrystals] = useState(100)
+	const [gameStarted, setGameStarted] = useState(false)
+
 	const boardRef = useRef(null)
-	const playOpen = useSound()
-	const playBomb = useSound()
-	const playCash = useSound()
-	const playMult = useSound()
+	const boardRootRef = useRef(null)
+	const glowTlRef = useRef(null)
+
+	const startGame = () => {
+		if (money < 10) return
+		setMoney(prev => prev - 10)
+		setGameStarted(true)
+	}
+
+	const saveGame = closeModal => {
+		if (crystals < 20) return
+		setMoney(prev => prev + balance)
+		if (closeModal) closeModal()
+		setTimeout(() => {
+			reset()
+		}, 300)
+	}
 
 	const reset = () => {
-		setCells(generateLayout())
 		setOpened([])
 		setBalance(0)
 		setBaseReveals([])
@@ -49,55 +67,86 @@ export default function GameBoard({ onShowModal }) {
 		setTriggerBombFlash(false)
 		setExplosionWave(false)
 		setShowMultPulse(false)
+		setCellDisplayValues({})
+		setGameStarted(false)
 		if (boardRef.current) {
 			gsap.killTweensOf(boardRef.current)
 			boardRef.current.style.transform = ''
 		}
+		setTimeout(() => {
+			setCells(generateLayout())
+		}, 100)
 	}
 
 	const handleOpen = idx => {
-		if (gameOver || opened.includes(idx)) return
+		if (!gameStarted || gameOver || opened.includes(idx)) return
 		const cell = cells[idx]
 		setOpened(o => [...o, idx])
-		playOpen()
 		if (cell.type === 'cash') {
 			const value = cell.amount * multiplier
-			playCash()
 			const el = document.querySelector(`[data-cell-index="${idx}"]`)
 			animateAddToBalance(cell.amount, el)
 			spawnParticles(el, '#34d399')
 			setBaseReveals(r => [...r, cell.amount])
+			setCellDisplayValues(prev => ({
+				...prev,
+				[idx]: cell.amount * multiplier,
+			}))
 			setTimeout(() => {
 				setBalance(b => b + value)
 			}, 450)
 		} else if (cell.type === 'mult') {
-			playMult()
-			setMultiplier(m => m * cell.mult)
+			const newMultiplier = multiplier * cell.mult
+			setMultiplier(newMultiplier)
 			setShowMultPulse(true)
-			setTimeout(() => setShowMultPulse(false), 900)
+			setTimeout(() => setShowMultPulse(false), 1200)
+
+			const currentBalance = balance
+			const newBalance = currentBalance * cell.mult
+
 			setTimeout(() => {
-				setBalance(b => b * cell.mult)
-			}, 400)
+				setCellDisplayValues(prev => {
+					const updated = {}
+					Object.keys(prev).forEach(cellIdx => {
+						updated[cellIdx] = prev[cellIdx] * cell.mult
+					})
+					return { ...prev, ...updated }
+				})
+			}, 200)
+
+			setTimeout(() => {
+				setBalance(newBalance)
+			}, 800)
 		} else if (cell.type === 'bomb') {
-			playBomb()
 			setGameOver(true)
 			setTriggerBombFlash(true)
 			setExplosionWave(true)
 			shakeBoard()
-			setTimeout(() => setTriggerBombFlash(false), 900)
-			setOpened(cells.map((_, i) => i))
+
+			setTimeout(() => {
+				cells.forEach((_, i) => {
+					if (i !== idx) {
+						setTimeout(() => {
+							setOpened(prev => [...prev, i])
+						}, i * 150)
+					}
+				})
+			}, 500)
+
 			setTimeout(() => {
 				if (onShowModal) {
 					onShowModal({
+						isOpen: true,
 						type: 'bomb',
-						balance,
-						multiplier,
 						baseValues: baseReveals,
+						multiplier,
 						onRestart: reset,
+						onSave: closeModal => saveGame(closeModal),
+						crystalCost: 20,
+						canSave: crystals >= 20 && balance > 0,
 					})
 				}
-			}, 900)
-			setTimeout(() => setExplosionWave(false), 1200)
+			}, 3000)
 		}
 	}
 
@@ -234,13 +283,14 @@ export default function GameBoard({ onShowModal }) {
 	const handleClaim = () => {
 		if (gameOver) return
 		setClaiming(true)
+		setMoney(prev => prev + balance)
 		setTimeout(() => {
 			if (onShowModal) {
 				onShowModal({
+					isOpen: true,
 					type: 'claim',
-					balance,
-					multiplier,
 					baseValues: baseReveals,
+					multiplier,
 					onRestart: reset,
 				})
 			}
@@ -253,88 +303,186 @@ export default function GameBoard({ onShowModal }) {
 		if (gameOver) return
 	}, [gameOver])
 
+	useEffect(() => {
+		const el = boardRootRef.current
+		if (!el) return
+		if (glowTlRef.current) {
+			glowTlRef.current.kill()
+			glowTlRef.current = null
+		}
+		if (triggerBombFlash) {
+			gsap.set(el, {
+				boxShadow: '0 0 20px 5px rgba(255,0,0,0.8)',
+				filter: 'brightness(1.1) saturate(1.2)',
+			})
+			glowTlRef.current = gsap.to(el, {
+				boxShadow: '0 0 35px 12px rgba(255,0,0,0.9)',
+				filter: 'brightness(1.3) saturate(1.5)',
+				duration: 1.2,
+				ease: 'sine.inOut',
+				yoyo: true,
+				repeat: -1,
+			})
+		} else {
+			gsap.to(el, {
+				boxShadow: '0 0 0px 0 rgba(255,0,0,0)',
+				filter: 'none',
+				duration: 0.3,
+				clearProps: 'boxShadow,filter',
+			})
+		}
+		return () => {
+			if (glowTlRef.current) {
+				glowTlRef.current.kill()
+				glowTlRef.current = null
+			}
+		}
+	}, [triggerBombFlash])
+
 	return (
-		<div ref={boardRef} className='w-full max-w-xl flex flex-col items-center'>
-			<div className='flex items-center gap-4 mb-4'>
-				<div className='bg-slate-800/70 backdrop-blur rounded-xl px-4 py-2 flex items-center gap-3 shadow-inner border border-slate-600/50 relative overflow-hidden'>
-					{showMultPulse && (
-						<span className='absolute inset-0 animate-[pulseRing_0.9s_ease-out] rounded-xl bg-gradient-to-r from-indigo-500/20 to-cyan-400/20' />
-					)}
-					<div className='text-xs uppercase tracking-wide text-slate-400'>
-						Balance
-					</div>
-					<Motion.div
-						key={balance}
-						initial={{ scale: 0.7, opacity: 0 }}
-						animate={{ scale: 1, opacity: 1 }}
-						className='text-2xl font-bold text-emerald-400 drop-shadow-sm'
-						data-balance-target
-					>
-						<AnimatedNumber value={balance} />
-					</Motion.div>
-					{multiplier !== 1 && (
-						<Motion.div
-							initial={{ scale: 0.5, opacity: 0 }}
-							animate={{ scale: 1, opacity: 1 }}
-							className='text-sm font-semibold text-indigo-300'
-						>
-							x{multiplier}
-						</Motion.div>
-					)}
+		<div className='w-full max-w-xl flex flex-col items-center relative'>
+			<div className='absolute top-0 right-0 flex flex-col gap-2'>
+				<div className='bg-slate-800/80 backdrop-blur rounded-lg px-3 py-1.5 flex items-center gap-2 shadow border border-slate-600/50'>
+					<span className='text-yellow-400 text-sm'>💰</span>
+					<span className='text-yellow-400 font-semibold text-sm'>
+						<AnimatedNumber value={money} />
+					</span>
 				</div>
-				<button
-					onClick={reset}
-					className='px-3 py-2 text-xs font-semibold rounded-md bg-slate-700/70 hover:bg-slate-600 transition-colors border border-slate-600/60 shadow active:scale-95'
-				>
-					Reset
-				</button>
+				<div className='bg-slate-800/80 backdrop-blur rounded-lg px-3 py-1.5 flex items-center gap-2 shadow border border-slate-600/50'>
+					<span className='text-cyan-400 text-sm'>💎</span>
+					<span className='text-cyan-400 font-semibold text-sm'>
+						<AnimatedNumber value={crystals} />
+					</span>
+				</div>
 			</div>
-			<div
-				id='board-root'
-				className={`relative grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 shadow-2xl overflow-hidden ${
-					triggerBombFlash ? 'animate-[flash_0.9s_ease]' : ''
-				}`}
-			>
-				{cellsData.map((c, i) => (
-					<GameCell
-						key={i}
-						data={c}
-						opened={opened.includes(i)}
-						onOpen={() => handleOpen(i)}
-						triggerBomb={c.type === 'bomb' && gameOver}
-						index={i}
-					/>
-				))}
+
+			<div ref={boardRef} className='w-full flex flex-col items-center'>
+				<div className='flex items-center gap-4 mb-4'>
+					<div className='bg-slate-800/70 backdrop-blur rounded-xl px-4 py-2 flex items-center gap-3 shadow-inner border border-slate-600/50 relative overflow-hidden'>
+						{showMultPulse && (
+							<Motion.span
+								className='absolute inset-0 rounded-xl bg-gradient-to-r from-indigo-500/20 to-cyan-400/20'
+								initial={{ opacity: 0, scale: 0.6 }}
+								animate={{ opacity: [0, 1, 0], scale: [0.6, 1, 1.8] }}
+								transition={{ duration: 0.9, ease: 'easeOut' }}
+							/>
+						)}
+						<div className='text-xs uppercase tracking-wide text-slate-400'>
+							Balance
+						</div>
+						<div
+							className='text-2xl font-bold text-emerald-400 drop-shadow-sm'
+							data-balance-target
+						>
+							<Motion.span
+								key={showMultPulse ? 'pulse' : 'idle'}
+								initial={
+									showMultPulse
+										? { scale: 1, textShadow: '0px 0px 0px rgba(52,211,153,0)' }
+										: false
+								}
+								animate={
+									showMultPulse
+										? {
+												scale: [1, 1.05, 1],
+												textShadow: [
+													'0px 0px 0px rgba(52,211,153,0)',
+													'0px 0px 20px rgba(52,211,153,0.8)',
+													'0px 0px 0px rgba(52,211,153,0)',
+												],
+										  }
+										: {}
+								}
+								transition={{ duration: 0.9, ease: 'easeOut' }}
+							>
+								<AnimatedNumber value={balance} />
+							</Motion.span>
+						</div>
+						{multiplier !== 1 && (
+							<div
+								className={`text-sm font-bold text-indigo-300 px-2 py-1 rounded-md bg-indigo-500/20 border border-indigo-400/30 shadow-sm ${
+									showMultPulse ? 'animate-bounce' : ''
+								}`}
+							>
+								x{multiplier}
+							</div>
+						)}
+					</div>
+					<button
+						onClick={reset}
+						className='px-3 py-2 text-xs font-semibold rounded-md bg-slate-700/70 hover:bg-slate-600 transition-colors border border-slate-600/60 shadow active:scale-95'
+					>
+						Reset
+					</button>
+				</div>
+
 				<div
-					id='flying-layer'
-					className='pointer-events-none absolute inset-0 overflow-visible'
-				/>
-				{explosionWave && (
-					<span className='pointer-events-none absolute inset-0 animate-[explosion_1s_ease-out] rounded-2xl bg-[radial-gradient(circle_at_center,rgba(255,80,80,0.45),transparent_70%)]' />
-				)}
-				<div className='pointer-events-none absolute -inset-1 rounded-[26px] bg-gradient-to-br from-indigo-500/20 to-cyan-400/20 blur-xl' />
-			</div>
-			<div className='mt-6 flex gap-4'>
-				<button
-					disabled={gameOver || claiming}
-					onClick={handleClaim}
-					className='relative overflow-hidden group px-8 py-3 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 text-sm font-semibold tracking-wide shadow-lg shadow-indigo-950/30 border border-white/10 disabled:opacity-40'
+					id='board-root'
+					ref={boardRootRef}
+					className={`relative grid grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 shadow-2xl overflow-hidden ${
+						!gameStarted ? 'opacity-50 pointer-events-none' : ''
+					}`}
 				>
-					<span className='relative z-10'>Claim</span>
-					<span className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.35),transparent)]' />
-					<span className='absolute -inset-1 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-40 rotate-12 transition-opacity' />
-				</button>
+					{cellsData.map((c, i) => (
+						<GameCell
+							key={`${i}-${c.type}-${c.amount || c.mult || 'empty'}`}
+							data={c}
+							opened={opened.includes(i)}
+							onOpen={() => handleOpen(i)}
+							triggerBomb={c.type === 'bomb' && gameOver}
+							index={i}
+							displayValue={cellDisplayValues[i]}
+						/>
+					))}
+					<div
+						id='flying-layer'
+						className='pointer-events-none absolute inset-0 overflow-visible'
+					/>
+					{explosionWave && (
+						<Motion.span
+							className='pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(circle_at_center,rgba(255,80,80,0.45),transparent_70%)]'
+							initial={{ scale: 0.2, opacity: 0.9 }}
+							animate={{ scale: 2.4, opacity: 0 }}
+							transition={{ duration: 1, ease: 'easeOut' }}
+						/>
+					)}
+					<div className='pointer-events-none absolute -inset-1 rounded-[26px] bg-gradient-to-br from-indigo-500/20 to-cyan-400/20 blur-xl' />
+				</div>
+
+				<div className='mt-6 w-full flex justify-center'>
+					<AnimatePresence mode='wait' initial={false}>
+						{!gameStarted ? (
+							<Motion.button
+								key='start'
+								onClick={startGame}
+								disabled={money < 10}
+								initial={{ opacity: 0, scale: 0.98, y: 5 }}
+								animate={{ opacity: 1, scale: 1, y: 0 }}
+								exit={{ opacity: 0, scale: 0.98, y: -5 }}
+								transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
+								className='px-8 py-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-xl transition-colors'
+							>
+								Start Game (10 💰)
+							</Motion.button>
+						) : (
+							<Motion.button
+								key='claim'
+								onClick={handleClaim}
+								disabled={gameOver || claiming}
+								initial={{ opacity: 0, scale: 0.98, y: 5 }}
+								animate={{ opacity: 1, scale: 1, y: 0 }}
+								exit={{ opacity: 0, scale: 0.98, y: -5 }}
+								transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
+								className='relative overflow-hidden group px-8 py-3 rounded-xl bg-gradient-to-br from-indigo-500 to-cyan-500 text-sm font-semibold tracking-wide shadow-lg shadow-indigo-950/30 border border-white/10 disabled:opacity-40'
+							>
+								<span className='relative z-10'>Claim</span>
+								<span className='absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.35),transparent)]' />
+								<span className='absolute -inset-1 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-40 rotate-12 transition-opacity' />
+							</Motion.button>
+						)}
+					</AnimatePresence>
+				</div>
 			</div>
-			<style>{`
-		@keyframes flash { 0% { box-shadow: 0 0 0px 0 rgba(255,0,0,.9); filter: none; } 40% { box-shadow: 0 0 40px 10px rgba(255,0,0,.6); filter: brightness(1.3) saturate(1.6); } 100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); filter: none; } }
-		@keyframes pulseRing { 0% { opacity:0; transform:scale(.6); } 40% { opacity:1; } 100% { opacity:0; transform:scale(1.8);} }
-		@keyframes explosion { 0% { transform:scale(0.2); opacity:.9; } 60% { opacity:.4; } 100% { transform:scale(2.4); opacity:0; } }
-		.flying-bill { width:38px; height:24px; pointer-events:none; transform-origin:center; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
-		.flying-bill .bill-inner { width:100%; height:100%; background:linear-gradient(135deg,#1d3f2f,#2e7d4b); border:2px solid rgba(255,255,255,0.15); border-radius:4px; position:relative; }
-		.flying-bill .bill-inner:before, .flying-bill .bill-inner:after { content:''; position:absolute; inset:4px; border:1px solid rgba(255,255,255,0.18); border-radius:2px; }
-		.flying-bill .bill-inner:after { inset:10px; border-color:rgba(255,255,255,0.12); }
-		.balance-flash { width:12px; height:12px; border:2px solid rgba(52,211,153,0.8); border-radius:50%; pointer-events:none; }
-		`}</style>
 		</div>
 	)
 }

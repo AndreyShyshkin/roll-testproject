@@ -22,6 +22,7 @@ export default function App() {
 			{modalProps && (
 				<ResultModal
 					{...modalProps}
+					isOpen={true}
 					onClose={handleCloseModal}
 					onRestart={() => {
 						handleCloseModal()

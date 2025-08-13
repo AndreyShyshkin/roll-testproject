@@ -20,26 +20,34 @@ const modal = {
 const formatNumber = n => n.toLocaleString('en-US')
 
 export default function ResultModal({
-	type,
-	balance,
-	multiplier,
-	baseValues,
+	isOpen,
 	onClose,
 	onRestart,
+	type,
+	baseValues = [],
+	multiplier = 1,
+	crystalCost = 20,
+	canSave = false,
+	onSave,
 }) {
 	useEffect(() => {
 		const handler = e => {
 			if (e.key === 'Escape') onClose?.()
 		}
-		window.addEventListener('keydown', handler)
-		return () => window.removeEventListener('keydown', handler)
-	}, [onClose])
+		if (isOpen) {
+			window.addEventListener('keydown', handler)
+			return () => window.removeEventListener('keydown', handler)
+		}
+	}, [onClose, isOpen])
+
+	if (!isOpen) return null
 
 	const title = type === 'bomb' ? 'Game Over' : 'Claim'
 	const subtitle =
 		type === 'bomb' ? 'Bomb triggered!' : 'You claimed your winnings.'
 
 	const totalBase = baseValues.reduce((a, b) => a + b, 0)
+	const balance = totalBase * multiplier
 
 	return (
 		<Motion.div
@@ -87,6 +95,14 @@ export default function ResultModal({
 						</div>
 					</div>
 					<div className='mt-6 flex gap-3'>
+						{type === 'bomb' && canSave && (
+							<button
+								onClick={() => onSave?.(onClose)}
+								className='flex-1 px-4 py-2 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 font-semibold text-sm shadow-md hover:shadow-lg transition-shadow'
+							>
+								Save for {crystalCost} 💎
+							</button>
+						)}
 						<button
 							onClick={onRestart}
 							className='flex-1 px-4 py-2 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 font-semibold text-sm shadow-md hover:shadow-lg transition-shadow'
